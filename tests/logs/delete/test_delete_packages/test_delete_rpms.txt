@@ -1,0 +1,9 @@
+[    INFO] Deleting [   1/   1] bash-1.23-1.test8_x86_64.rpm (aabbcc)
+[ WARNING] bash-1.23-1.test8_x86_64.rpm is not present in some-other-repo
+[ WARNING] No units to remove from some-other-repo
+[    INFO] some-yumrepo: removed 1 rpm(s), tasks: e3e70682-c209-4cac-629f-6fbed82c07cd
+[    INFO] Record push items: started
+[    INFO] Record push items: finished
+[    INFO] Publish: started
+[    INFO] Publishing some-yumrepo
+[    INFO] Publish: finished

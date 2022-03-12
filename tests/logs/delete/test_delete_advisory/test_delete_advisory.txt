@@ -1,0 +1,6 @@
+[    INFO] some-yumrepo: removed 2 rpm(s), tasks: e3e70682-c209-4cac-629f-6fbed82c07cd
+[    INFO] Record push items: started
+[    INFO] Record push items: finished
+[    INFO] Publish: started
+[    INFO] Publishing some-yumrepo
+[    INFO] Publish: finished

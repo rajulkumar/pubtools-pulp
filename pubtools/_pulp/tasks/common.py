@@ -5,10 +5,21 @@ import attr
 
 from more_executors.futures import f_map, f_flat_map, f_sequence
 
-from pubtools.pulplib import PublishOptions
+from pushsource import FilePushItem, ModuleMdPushItem, RpmPushItem
+from pubtools.pulplib import (
+    PublishOptions,
+    FileUnit,
+    ModulemdUnit,
+    PublishOptions,
+    RpmUnit,
+)
 
 from pubtools._pulp.task import PulpTask
-from pubtools._pulp.services import FastPurgeClientService, UdCacheClientService
+from pubtools._pulp.services import (
+    FastPurgeClientService,
+    UdCacheClientService,
+    CollectorService,
+)
 
 from ..hooks import pm
 
@@ -158,3 +169,87 @@ class Publisher(CDNCache, UdCache):
         out.append(flush_ud)
 
         return out
+
+
+class PushItemRecorder(CollectorService):
+    @step("Record push items")
+    def record_clears(self, cleared_repo_fs):
+        return [f_flat_map(f, self.record_cleared_repo) for f in cleared_repo_fs]
+
+    def record_cleared_repo(self, cleared_repo):
+        push_items = []
+        for task in cleared_repo.tasks:
+            push_items.extend(self.push_items_for_task(task))
+        return self.collector.update_push_items(push_items)
+
+    def push_items_for_task(self, task):
+        out = []
+        for unit in task.units:
+            push_item = self.push_item_for_unit(unit)
+            if push_item:
+                out.append(push_item)
+        return out
+
+    def push_item_for_unit(self, unit):
+        for (unit_type, fn) in [
+            (ModulemdUnit, self.push_item_for_modulemd),
+            (RpmUnit, self.push_item_for_rpm),
+            (FileUnit, self.push_item_for_file),
+        ]:
+            if isinstance(unit, unit_type):
+                return fn(unit)
+
+    def push_item_for_modulemd(self, unit):
+        out = {}
+        out["state"] = "DELETED"
+        out["origin"] = "pulp"
+
+        # Note: N:S:V:C:A format here is kept even if some part
+        # of the data is missing (never expected to happen).
+        # For example, if C was missing, you'll get N:S:V::A
+        # so the arch part can't be misinterpreted as context.
+        nsvca = ":".join(
+            [unit.name, unit.stream, str(unit.version), unit.context, unit.arch]
+        )
+
+        out["name"] = nsvca
+
+        return ModuleMdPushItem(**out)
+
+    def push_item_for_rpm(self, unit):
+        out = {}
+
+        out["state"] = "DELETED"
+        out["origin"] = "pulp"
+
+        filename_parts = [
+            unit.name,
+            "-",
+            unit.version,
+            "-",
+            unit.release,
+            ".",
+            unit.arch,
+            ".rpm",
+        ]
+        out["name"] = "".join(filename_parts)
+
+        # Note: in practice we don't necessarily expect to get all of these
+        # attributes, as after a delete the server will only provide those
+        # which make up the unit key. We still copy them anyway (even if
+        # values are None) in case this is improved some day.
+        out["sha256sum"] = unit.sha256sum
+        out["md5sum"] = unit.md5sum
+        out["signing_key"] = unit.signing_key
+
+        return RpmPushItem(**out)
+
+    def push_item_for_file(self, unit):
+        out = {}
+
+        out["state"] = "DELETED"
+        out["origin"] = "pulp"
+        out["name"] = unit.path
+        out["sha256sum"] = unit.sha256sum
+
+        return FilePushItem(**out)

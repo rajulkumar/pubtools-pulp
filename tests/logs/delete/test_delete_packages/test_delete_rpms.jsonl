@@ -1,0 +1,4 @@
+{"event": {"type": "record-push-items-start"}}
+{"event": {"type": "record-push-items-end"}}
+{"event": {"type": "publish-start"}}
+{"event": {"type": "publish-end"}}
